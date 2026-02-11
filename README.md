@@ -6,7 +6,7 @@ Outil d'archivage et de consultation des articles du quotidien [Maire-Info](http
 
 ## Fonctionnalités
 
-- **Archivage automatique** : récupération quotidienne des articles via le flux RSS
+- **Archivage automatique** : récupération biquotidienne des articles via le flux RSS
 - **Recherche plein texte** : filtrage instantané par mots-clés dans les titres et descriptions
 - **Filtrage par rubrique** : Polices municipales, Élections, Commerce, Agriculture, etc.
 - **Filtrage par période** : 7 jours, 30 jours, 3 mois
@@ -31,7 +31,9 @@ Outil d'archivage et de consultation des articles du quotidien [Maire-Info](http
 
 Le dépôt utilise **GitHub Actions** pour se synchroniser automatiquement :
 
-- **Chaque jour ouvré à 7h30** (heure de Paris) : récupération du flux RSS
+- **8h00** (heure de Paris) : premier scan du matin, capte l'édition principale
+- **14h00** (heure de Paris) : second scan, capte les articles publiés en cours de journée
+- **Du lundi au vendredi** uniquement (Maire-Info ne publie pas le week-end)
 - **Déclenchement manuel** : possible via l'onglet "Actions" → "Run workflow"
 
 Le flux de travail :
@@ -42,6 +44,13 @@ Le flux de travail :
 4. Fusionne avec les articles déjà archivés (dédoublonnage par ID)
 5. Met à jour le fichier `index.html` avec les nouvelles données
 6. Commit et publie automatiquement
+
+### Notifications
+
+GitHub envoie automatiquement un email en cas d'échec du workflow. Pour configurer les notifications :
+
+1. Aller dans **github.com → Settings → Notifications**
+2. Section **Actions** : choisir le niveau de notification souhaité (échecs uniquement, ou toutes les exécutions)
 
 ## Structure du projet
 
@@ -99,12 +108,15 @@ archives-maire-info/
 
 ### Modifier la fréquence de mise à jour
 
-Dans `.github/workflows/update-data.yml`, modifier le `cron` :
+Dans `.github/workflows/update-data.yml`, modifier les lignes `cron` :
 
 ```yaml
 schedule:
-  - cron: '30 6 * * 1-5'  # Lundi-vendredi à 7h30 (Paris)
+  - cron: '0 7 * * 1-5'   # 8h00 Paris (7h00 UTC hiver)
+  - cron: '0 13 * * 1-5'  # 14h00 Paris (13h00 UTC hiver)
 ```
+
+> **Note** : les crons GitHub sont en UTC. En heure d'été (CEST), il faut retirer 1h supplémentaire (7h00 UTC = 9h00 CEST). Ajustez si nécessaire.
 
 ### Modifier le nombre maximum d'articles archivés
 
