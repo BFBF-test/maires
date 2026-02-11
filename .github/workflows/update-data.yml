@@ -2,12 +2,9 @@ name: Mise à jour quotidienne des articles Maire-Info
 
 on:
   schedule:
-    # Deux scans par jour, du lundi au vendredi
-    # 8h00 Paris (= 7h00 UTC en hiver CET / 6h00 UTC en été CEST)
     - cron: '0 7 * * 1-5'
-    # 14h00 Paris (= 13h00 UTC en hiver / 12h00 UTC en été)
     - cron: '0 13 * * 1-5'
-  workflow_dispatch:  # Déclenchement manuel possible
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,7 +22,6 @@ jobs:
           node-version: '20'
 
       - name: Récupération et traitement des articles
-        id: scrape
         uses: actions/github-script@v7
         with:
           script: |
@@ -33,13 +29,10 @@ jobs:
             const http = require('http');
             const fs = require('fs');
 
-            // === CONFIGURATION ===
             const RSS_URL = 'http://www.maire-info.com/rss/';
             const MAX_ARTICLES = 500;
 
-            // === FONCTIONS UTILITAIRES ===
-
-            function fetch(url) {
+            function fetchUrl(url) {
               return new Promise((resolve, reject) => {
                 const client = url.startsWith('https') ? https : http;
                 client.get(url, {
@@ -47,7 +40,7 @@ jobs:
                   timeout: 15000
                 }, (res) => {
                   if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    return fetch(res.headers.location).then(resolve).catch(reject);
+                    return fetchUrl(res.headers.location).then(resolve).catch(reject);
                   }
                   let data = '';
                   res.setEncoding('utf8');
@@ -70,15 +63,15 @@ jobs:
                 .replace(/&Ecirc;/g, 'Ê').replace(/&Ocirc;/g, 'Ô')
                 .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
                 .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ')
-                .replace(/&ndash;/g, '–').replace(/&mdash;/g, '—').replace(/&hellip;/g, '…')
-                .replace(/&oelig;/g, 'œ').replace(/&OElig;/g, 'Œ');
+                .replace(/&ndash;/g, '\u2013').replace(/&mdash;/g, '\u2014').replace(/&hellip;/g, '\u2026')
+                .replace(/&oelig;/g, '\u0153').replace(/&OElig;/g, '\u0152');
             }
 
             function stripCDATA(str) { return str.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'); }
             function stripHtml(str) { return str.replace(/<[^>]+>/g, '').trim(); }
 
             function extractTag(xml, tag) {
-              const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
+              const regex = new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'i');
               const match = xml.match(regex);
               return match ? match[1].trim() : '';
             }
@@ -107,7 +100,14 @@ jobs:
                 const description = decodeHtmlEntities(stripHtml(descRaw)).replace(/\s+/g, ' ').trim();
                 const pubDate = extractTag(itemXml, 'pubDate');
                 if (title && link) {
-                  items.push({ id: extractIdFromUrl(link), title, description: description.slice(0, 500), url: link, date: isoDate(pubDate), rubrique: '' });
+                  items.push({
+                    id: extractIdFromUrl(link),
+                    title: title,
+                    description: description.slice(0, 500),
+                    url: link,
+                    date: isoDate(pubDate),
+                    rubrique: ''
+                  });
                 }
               }
               return items;
@@ -115,188 +115,94 @@ jobs:
 
             async function fetchRubrique(articleUrl) {
               try {
-                const html = await fetch(articleUrl);
-                const rubriqueMatch = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)</i);
+                const html = await fetchUrl(articleUrl);
+                const rubriqueMatch = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)/i);
                 if (rubriqueMatch) return decodeHtmlEntities(rubriqueMatch[1].trim());
-                const pathMatch = articleUrl.match(/maire-info\.com\/([^\/]+)\//);
-                if (pathMatch) return decodeHtmlEntities(pathMatch[1].replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase()));
                 return '';
               } catch(e) { return ''; }
             }
 
-            // === LOGIQUE PRINCIPALE ===
-
-            async function main() {
-              const report = { status: 'success', rssArticles: 0, newArticles: 0, totalArticles: 0, titles: [], error: '' };
-
-              console.log('📰 Récupération du flux RSS...');
-              let rssXml;
-              try {
-                rssXml = await fetch(RSS_URL);
-                console.log(`✅ Flux RSS récupéré (${rssXml.length} car.)`);
-              } catch(e) {
-                report.status = 'error';
-                report.error = e.message;
-                core.setOutput('report', JSON.stringify(report));
-                core.setFailed(`Erreur RSS : ${e.message}`);
-                return;
-              }
-
-              const newArticles = parseRSS(rssXml);
-              report.rssArticles = newArticles.length;
-              console.log(`📋 ${newArticles.length} article(s) dans le RSS`);
-
-              if (newArticles.length === 0) {
-                report.status = 'no_new';
-                core.setOutput('report', JSON.stringify(report));
-                return;
-              }
-
-              console.log('🏷️ Récupération des rubriques...');
-              for (const article of newArticles) {
-                article.rubrique = await fetchRubrique(article.url);
-                console.log(`  • "${article.title.slice(0,60)}..." → ${article.rubrique || '?'}`);
-                await new Promise(r => setTimeout(r, 500));
-              }
-
-              let existingArticles = [];
-              try {
-                const indexHtml = fs.readFileSync('index.html', 'utf-8');
-                const dataMatch = indexHtml.match(/const ARTICLES = (\[[\s\S]*?\]);/);
-                if (dataMatch) existingArticles = JSON.parse(dataMatch[1]);
-                console.log(`📦 ${existingArticles.length} article(s) en archives`);
-              } catch(e) { console.log('ℹ️ Création initiale.'); }
-
-              const existingIds = new Set(existingArticles.map(a => a.id));
-              let addedCount = 0;
-              for (const article of newArticles) {
-                if (!existingIds.has(article.id)) {
-                  existingArticles.push(article);
-                  existingIds.add(article.id);
-                  addedCount++;
-                  report.titles.push(article.title);
-                }
-              }
-
-              report.newArticles = addedCount;
-              console.log(`➕ ${addedCount} nouvel(aux) article(s)`);
-
-              existingArticles.sort((a, b) => {
-                if (a.date !== b.date) return b.date.localeCompare(a.date);
-                return b.id - a.id;
-              });
-
-              if (existingArticles.length > MAX_ARTICLES) {
-                existingArticles = existingArticles.slice(0, MAX_ARTICLES);
-              }
-
-              report.totalArticles = existingArticles.length;
-
-              let indexHtml = fs.readFileSync('index.html', 'utf-8');
-              const now = new Date().toISOString();
-              indexHtml = indexHtml.replace(/const ARTICLES = \[[\s\S]*?\];/, `const ARTICLES = ${JSON.stringify(existingArticles, null, 2)};`);
-              indexHtml = indexHtml.replace(/const LAST_UPDATE = "[^"]*";/, `const LAST_UPDATE = "${now}";`);
-              fs.writeFileSync('index.html', indexHtml, 'utf-8');
-
-              console.log(`✅ index.html mis à jour — ${existingArticles.length} articles`);
-              core.setOutput('report', JSON.stringify(report));
+            console.log('Recuperation du flux RSS...');
+            let rssXml;
+            try {
+              rssXml = await fetchUrl(RSS_URL);
+              console.log('Flux RSS recupere (' + rssXml.length + ' car.)');
+            } catch(e) {
+              core.setFailed('Erreur RSS : ' + e.message);
+              return;
             }
 
-            await main();
+            const newArticles = parseRSS(rssXml);
+            console.log(newArticles.length + ' article(s) dans le RSS');
+
+            if (newArticles.length === 0) {
+              console.log('Aucun article dans le RSS.');
+              return;
+            }
+
+            console.log('Recuperation des rubriques...');
+            for (const article of newArticles) {
+              article.rubrique = await fetchRubrique(article.url);
+              console.log('  ' + article.title.slice(0, 60) + ' -> ' + (article.rubrique || '?'));
+              await new Promise(r => setTimeout(r, 500));
+            }
+
+            let existingArticles = [];
+            try {
+              const html = fs.readFileSync('index.html', 'utf-8');
+              const m = html.match(/const ARTICLES = (\[[\s\S]*?\]);/);
+              if (m) existingArticles = JSON.parse(m[1]);
+              console.log(existingArticles.length + ' article(s) en archives');
+            } catch(e) { console.log('Creation initiale.'); }
+
+            const existingIds = new Set(existingArticles.map(a => a.id));
+            let added = 0;
+            for (const a of newArticles) {
+              if (!existingIds.has(a.id)) {
+                existingArticles.push(a);
+                existingIds.add(a.id);
+                added++;
+              }
+            }
+            console.log(added + ' nouvel(aux) article(s)');
+
+            if (added === 0) {
+              console.log('Pas de nouvel article.');
+              return;
+            }
+
+            existingArticles.sort((a, b) => {
+              if (a.date !== b.date) return b.date.localeCompare(a.date);
+              return b.id - a.id;
+            });
+            if (existingArticles.length > MAX_ARTICLES) {
+              existingArticles = existingArticles.slice(0, MAX_ARTICLES);
+            }
+
+            let indexHtml = fs.readFileSync('index.html', 'utf-8');
+            const now = new Date().toISOString();
+            indexHtml = indexHtml.replace(
+              /const ARTICLES = \[[\s\S]*?\];/,
+              'const ARTICLES = ' + JSON.stringify(existingArticles, null, 2) + ';'
+            );
+            indexHtml = indexHtml.replace(
+              /const LAST_UPDATE = "[^"]*";/,
+              'const LAST_UPDATE = "' + now + '";'
+            );
+            fs.writeFileSync('index.html', indexHtml, 'utf-8');
+            console.log('index.html mis a jour avec ' + existingArticles.length + ' articles');
 
       - name: Commit et push
-        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html
           if git diff --staged --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Aucune modification."
           else
             ARTICLES_COUNT=$(grep -o '"id"' index.html | wc -l)
             DATE=$(TZ='Europe/Paris' date +%Y-%m-%d)
             HOUR=$(TZ='Europe/Paris' date +%Hh%M)
-            git commit -m "📰 $DATE $HOUR — $ARTICLES_COUNT articles en archives"
+            git commit -m "maj $DATE $HOUR - $ARTICLES_COUNT articles"
             git push
-            echo "changed=true" >> $GITHUB_OUTPUT
           fi
-
-      # ══════════════════════════════════════════
-      #  NOTIFICATION PAR EMAIL
-      # ══════════════════════════════════════════
-
-      - name: Préparer le rapport email
-        id: email
-        if: always()
-        run: |
-          REPORT='${{ steps.scrape.outputs.report }}'
-          DATE=$(TZ='Europe/Paris' date '+%d/%m/%Y à %Hh%M')
-          CHANGED="${{ steps.commit.outputs.changed }}"
-
-          # --- Statut et sujet ---
-          if [ "${{ job.status }}" = "failure" ]; then
-            SUBJECT="❌ Maire-Info Archives — Échec du scan ($DATE)"
-            STATUS="ÉCHEC"
-          elif [ "$CHANGED" = "true" ]; then
-            NEW=$(echo "$REPORT" | jq -r '.newArticles // 0' 2>/dev/null || echo "?")
-            SUBJECT="✅ Maire-Info Archives — $NEW nouvel(aux) article(s) ($DATE)"
-            STATUS="OK — nouveaux articles ajoutés"
-          else
-            SUBJECT="ℹ️ Maire-Info Archives — RAS ($DATE)"
-            STATUS="OK — rien de nouveau"
-          fi
-
-          # --- Données du rapport ---
-          RSS=$(echo "$REPORT" | jq -r '.rssArticles // 0' 2>/dev/null || echo "?")
-          NEW=$(echo "$REPORT" | jq -r '.newArticles // 0' 2>/dev/null || echo "0")
-          TOTAL=$(echo "$REPORT" | jq -r '.totalArticles // 0' 2>/dev/null || echo "?")
-          ERR=$(echo "$REPORT" | jq -r '.error // ""' 2>/dev/null || echo "")
-
-          # --- Liste des nouveaux titres ---
-          TITLES=$(echo "$REPORT" | jq -r '.titles[]?' 2>/dev/null | while IFS= read -r t; do echo "  • $t"; done)
-          [ -z "$TITLES" ] && TITLES="  (aucun)"
-
-          # --- Corps du mail ---
-          EOF_MARKER=$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 16)
-
-          echo "subject=$SUBJECT" >> $GITHUB_OUTPUT
-
-          cat >> $GITHUB_OUTPUT <<GHEOF
-          body<<$EOF_MARKER
-          ════════════════════════════════════
-           RAPPORT DE SCAN MAIRE-INFO
-          ════════════════════════════════════
-
-          Date :   $DATE
-          Statut : $STATUS
-          $( [ -n "$ERR" ] && echo "Erreur : $ERR" )
-
-          ── Chiffres ─────────────────────────
-          Articles dans le RSS :       $RSS
-          Nouveaux articles ajoutés :  $NEW
-          Total en archives :          $TOTAL
-
-          ── Nouveaux articles ────────────────
-          $TITLES
-
-          ── Liens ────────────────────────────
-          Workflow : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          ──────────────────────────────────────
-          Prochains scans : 8h et 14h (Paris)
-          $EOF_MARKER
-          GHEOF
-
-      - name: Envoyer l'email de confirmation
-        if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: Maire-Info Archives <${{ secrets.SMTP_USERNAME }}>
-          subject: ${{ steps.email.outputs.subject }}
-          body: ${{ steps.email.outputs.body }}
-          secure: true
