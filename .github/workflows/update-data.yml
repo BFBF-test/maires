@@ -1,1 +1,290 @@
+name: Mise à jour quotidienne des articles Maire-Info
 
+on:
+  schedule:
+    # Chaque jour à 7h30 (heure de Paris = 6h30 UTC)
+    # Maire-Info publie généralement le matin vers 7h-8h
+    - cron: '30 6 * * 1-5'  # Lundi-vendredi uniquement (pas de publication le week-end)
+  workflow_dispatch:  # Déclenchement manuel possible
+
+permissions:
+  contents: write
+
+jobs:
+  update-articles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Configuration de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Récupération et traitement des articles
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const https = require('https');
+            const http = require('http');
+            const fs = require('fs');
+
+            // === CONFIGURATION ===
+            const RSS_URL = 'http://www.maire-info.com/rss/';
+            const MAX_ARTICLES = 500;  // Nombre max d'articles conservés dans les archives
+            
+            // === FONCTIONS UTILITAIRES ===
+            
+            function fetch(url) {
+              return new Promise((resolve, reject) => {
+                const client = url.startsWith('https') ? https : http;
+                client.get(url, { 
+                  headers: { 'User-Agent': 'MaireInfoArchiver/1.0' },
+                  timeout: 15000
+                }, (res) => {
+                  // Suivre les redirections
+                  if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    return fetch(res.headers.location).then(resolve).catch(reject);
+                  }
+                  let data = '';
+                  res.setEncoding('utf8');
+                  res.on('data', chunk => data += chunk);
+                  res.on('end', () => resolve(data));
+                  res.on('error', reject);
+                }).on('error', reject);
+              });
+            }
+            
+            function decodeHtmlEntities(str) {
+              return str
+                .replace(/&rsquo;/g, '\u2019')
+                .replace(/&laquo;/g, '\u00AB')
+                .replace(/&raquo;/g, '\u00BB')
+                .replace(/&eacute;/g, 'é')
+                .replace(/&egrave;/g, 'è')
+                .replace(/&agrave;/g, 'à')
+                .replace(/&ugrave;/g, 'ù')
+                .replace(/&ecirc;/g, 'ê')
+                .replace(/&ocirc;/g, 'ô')
+                .replace(/&icirc;/g, 'î')
+                .replace(/&ucirc;/g, 'û')
+                .replace(/&acirc;/g, 'â')
+                .replace(/&euml;/g, 'ë')
+                .replace(/&iuml;/g, 'ï')
+                .replace(/&ouml;/g, 'ö')
+                .replace(/&uuml;/g, 'ü')
+                .replace(/&ccedil;/g, 'ç')
+                .replace(/&Eacute;/g, 'É')
+                .replace(/&Egrave;/g, 'È')
+                .replace(/&Agrave;/g, 'À')
+                .replace(/&Ecirc;/g, 'Ê')
+                .replace(/&Ocirc;/g, 'Ô')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#0?39;/g, "'")
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&ndash;/g, '–')
+                .replace(/&mdash;/g, '—')
+                .replace(/&hellip;/g, '…')
+                .replace(/&oelig;/g, 'œ')
+                .replace(/&OElig;/g, 'Œ');
+            }
+            
+            function stripCDATA(str) {
+              return str.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+            }
+            
+            function stripHtml(str) {
+              return str.replace(/<[^>]+>/g, '').trim();
+            }
+            
+            function extractTag(xml, tag) {
+              const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
+              const match = xml.match(regex);
+              return match ? match[1].trim() : '';
+            }
+            
+            function extractIdFromUrl(url) {
+              const match = url.match(/param=(\d+)/);
+              return match ? parseInt(match[1]) : 0;
+            }
+            
+            function isoDate(pubDate) {
+              try {
+                const d = new Date(pubDate);
+                if (isNaN(d.getTime())) {
+                  // Fallback : aujourd'hui
+                  return new Date().toISOString().slice(0, 10);
+                }
+                return d.toISOString().slice(0, 10);
+              } catch(e) {
+                return new Date().toISOString().slice(0, 10);
+              }
+            }
+            
+            // === PARSING DU RSS ===
+            
+            function parseRSS(xml) {
+              const items = [];
+              const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+              let match;
+              
+              while ((match = itemRegex.exec(xml)) !== null) {
+                const itemXml = match[1];
+                const title = decodeHtmlEntities(stripCDATA(extractTag(itemXml, 'title')));
+                const link = extractTag(itemXml, 'link').trim();
+                const descRaw = stripCDATA(extractTag(itemXml, 'description'));
+                const description = decodeHtmlEntities(stripHtml(descRaw)).replace(/\s+/g, ' ').trim();
+                const pubDate = extractTag(itemXml, 'pubDate');
+                
+                if (title && link) {
+                  items.push({
+                    id: extractIdFromUrl(link),
+                    title: title,
+                    description: description.slice(0, 500),
+                    url: link,
+                    date: isoDate(pubDate),
+                    rubrique: ''
+                  });
+                }
+              }
+              
+              return items;
+            }
+            
+            // === EXTRACTION DE LA RUBRIQUE DEPUIS LA PAGE ARTICLE ===
+            
+            async function fetchRubrique(articleUrl) {
+              try {
+                const html = await fetch(articleUrl);
+                // La rubrique est dans un lien de type : <a href="...refer=listerubriques">NomRubrique</a>
+                // ou dans le breadcrumb de la page
+                const rubriqueMatch = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)</i);
+                if (rubriqueMatch) {
+                  return decodeHtmlEntities(rubriqueMatch[1].trim());
+                }
+                // Fallback : chercher dans le chemin de l'URL de l'article (nouveau format)
+                const pathMatch = articleUrl.match(/maire-info\.com\/([^\/]+)\//);
+                if (pathMatch) {
+                  return decodeHtmlEntities(pathMatch[1].replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase()));
+                }
+                return '';
+              } catch(e) {
+                console.log(`  ⚠ Impossible de récupérer la rubrique pour ${articleUrl}`);
+                return '';
+              }
+            }
+            
+            // === LOGIQUE PRINCIPALE ===
+            
+            async function main() {
+              console.log('📰 Récupération du flux RSS de Maire-Info...');
+              
+              let rssXml;
+              try {
+                rssXml = await fetch(RSS_URL);
+                console.log(`✅ Flux RSS récupéré (${rssXml.length} caractères)`);
+              } catch(e) {
+                console.error('❌ Erreur lors de la récupération du RSS :', e.message);
+                process.exit(1);
+              }
+              
+              // Parser le RSS
+              const newArticles = parseRSS(rssXml);
+              console.log(`📋 ${newArticles.length} article(s) trouvé(s) dans le flux RSS`);
+              
+              if (newArticles.length === 0) {
+                console.log('ℹ️ Aucun nouvel article, pas de mise à jour nécessaire.');
+                return;
+              }
+              
+              // Récupérer les rubriques
+              console.log('🏷️ Récupération des rubriques...');
+              for (const article of newArticles) {
+                article.rubrique = await fetchRubrique(article.url);
+                console.log(`  • "${article.title.slice(0,60)}..." → ${article.rubrique || '(sans rubrique)'}`);
+                // Petit délai pour ne pas surcharger le serveur
+                await new Promise(r => setTimeout(r, 500));
+              }
+              
+              // Charger les articles existants depuis index.html
+              let existingArticles = [];
+              try {
+                const indexHtml = fs.readFileSync('index.html', 'utf-8');
+                const dataMatch = indexHtml.match(/const ARTICLES = (\[[\s\S]*?\]);/);
+                if (dataMatch) {
+                  existingArticles = JSON.parse(dataMatch[1]);
+                  console.log(`📦 ${existingArticles.length} article(s) existant(s) dans les archives`);
+                }
+              } catch(e) {
+                console.log('ℹ️ Pas d\'archives existantes, création initiale.');
+              }
+              
+              // Fusionner : ajouter les nouveaux, éviter les doublons (par ID)
+              const existingIds = new Set(existingArticles.map(a => a.id));
+              let addedCount = 0;
+              
+              for (const article of newArticles) {
+                if (!existingIds.has(article.id)) {
+                  existingArticles.push(article);
+                  existingIds.add(article.id);
+                  addedCount++;
+                }
+              }
+              
+              console.log(`➕ ${addedCount} nouvel(aux) article(s) ajouté(s)`);
+              
+              // Trier par date décroissante puis par ID décroissant
+              existingArticles.sort((a, b) => {
+                if (a.date !== b.date) return b.date.localeCompare(a.date);
+                return b.id - a.id;
+              });
+              
+              // Limiter le nombre d'articles conservés
+              if (existingArticles.length > MAX_ARTICLES) {
+                existingArticles = existingArticles.slice(0, MAX_ARTICLES);
+                console.log(`🗑️ Archives limitées à ${MAX_ARTICLES} articles`);
+              }
+              
+              // Mettre à jour index.html
+              let indexHtml = fs.readFileSync('index.html', 'utf-8');
+              const now = new Date().toISOString();
+              
+              // Remplacer le bloc ARTICLES
+              const articlesJson = JSON.stringify(existingArticles, null, 2);
+              indexHtml = indexHtml.replace(
+                /const ARTICLES = \[[\s\S]*?\];/,
+                `const ARTICLES = ${articlesJson};`
+              );
+              
+              // Remplacer LAST_UPDATE
+              indexHtml = indexHtml.replace(
+                /const LAST_UPDATE = "[^"]*";/,
+                `const LAST_UPDATE = "${now}";`
+              );
+              
+              fs.writeFileSync('index.html', indexHtml, 'utf-8');
+              console.log(`✅ index.html mis à jour avec ${existingArticles.length} articles`);
+              console.log(`🕐 Timestamp : ${now}`);
+            }
+            
+            await main();
+
+      - name: Commit et push des modifications
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          # Ne commit que s'il y a des changements
+          if git diff --staged --quiet; then
+            echo "Aucune modification détectée, pas de commit."
+          else
+            ARTICLES_COUNT=$(grep -o '"id"' index.html | wc -l)
+            DATE=$(date +%Y-%m-%d)
+            git commit -m "📰 Mise à jour du $DATE — $ARTICLES_COUNT articles en archives"
+            git push
+            echo "✅ Modifications pushées avec succès."
+          fi
