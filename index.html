@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archives Maire-Info — Quotidien des élus locaux</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bleu-marine: #1a2744;
+  --bleu-moyen: #2c4a7c;
+  --bleu-clair: #4a7ab5;
+  --bleu-pale: #e8f0fa;
+  --bleu-tres-pale: #f4f7fb;
+  --or: #c4962c;
+  --or-pale: #faf5e8;
+  --rouge: #b5342a;
+  --texte: #1e2328;
+  --texte-secondaire: #5a6370;
+  --fond: #fafaf8;
+  --blanc: #ffffff;
+  --bordure: #dde3ea;
+  --ombre: 0 2px 12px rgba(26,39,68,0.08);
+  --ombre-forte: 0 4px 24px rgba(26,39,68,0.12);
+  --rayon: 6px;
+  --transition: 0.2s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* === EN-TÊTE === */
+header {
+  background: linear-gradient(135deg, var(--bleu-marine) 0%, var(--bleu-moyen) 100%);
+  color: white;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 20px rgba(26,39,68,0.25);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.header-brand h1 {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.header-brand .subtitle {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  font-weight: 400;
+  border-left: 1px solid rgba(255,255,255,0.3);
+  padding-left: 0.75rem;
+}
+
+.header-brand .badge-archives {
+  background: var(--or);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2em 0.6em;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.header-stats {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.header-stats .stat-num {
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: block;
+}
+
+/* === BARRE OUTILS === */
+.toolbar {
+  background: var(--blanc);
+  border-bottom: 1px solid var(--bordure);
+  padding: 0.75rem 2rem;
+  position: sticky;
+  top: 62px;
+  z-index: 99;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.toolbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  min-width: 220px;
+  position: relative;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 0.55rem 0.85rem 0.55rem 2.4rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--texte);
+  background: var(--blanc);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--bleu-clair);
+  box-shadow: 0 0 0 3px rgba(74,122,181,0.15);
+}
+
+.search-box::before {
+  content: "⌕";
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.05rem;
+  color: var(--texte-secondaire);
+  pointer-events: none;
+}
+
+select, .btn {
+  padding: 0.55rem 0.85rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--texte);
+  background: var(--blanc);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+select:hover, .btn:hover {
+  border-color: var(--bleu-clair);
+}
+
+.btn-export {
+  background: var(--bleu-marine);
+  color: white;
+  border-color: var(--bleu-marine);
+  font-weight: 600;
+}
+
+.btn-export:hover {
+  background: var(--bleu-moyen);
+  border-color: var(--bleu-moyen);
+}
+
+.btn-secondary {
+  background: var(--bleu-pale);
+  border-color: var(--bleu-pale);
+  color: var(--bleu-marine);
+  font-weight: 500;
+}
+
+/* === CONTENU === */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 3rem;
+}
+
+/* === ÉDITION DU JOUR === */
+.edition-group {
+  margin-bottom: 2rem;
+}
+
+.edition-date {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--bleu-marine);
+  padding: 0.5rem 0;
+  border-bottom: 2px solid var(--bleu-marine);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edition-date .jour {
+  font-weight: 400;
+  color: var(--texte-secondaire);
+  font-size: 0.95rem;
+}
+
+.edition-date .count {
+  margin-left: auto;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--bleu-pale);
+  color: var(--bleu-moyen);
+  padding: 0.2em 0.65em;
+  border-radius: 10px;
+}
+
+/* === CARTE ARTICLE === */
+.article-card {
+  background: var(--blanc);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  padding: 1.15rem 1.3rem;
+  margin-bottom: 0.65rem;
+  transition: all var(--transition);
+  cursor: default;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: start;
+}
+
+.article-card:hover {
+  border-color: var(--bleu-clair);
+  box-shadow: var(--ombre);
+  transform: translateY(-1px);
+}
+
+.article-check {
+  margin-top: 0.2rem;
+  accent-color: var(--bleu-moyen);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.article-body h3 {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--bleu-marine);
+  margin-bottom: 0.35rem;
+}
+
+.article-body h3 a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.article-body h3 a:hover {
+  color: var(--bleu-clair);
+}
+
+.article-body .description {
+  font-size: 0.85rem;
+  color: var(--texte-secondaire);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  min-width: 100px;
+}
+
+.rubrique-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2em 0.6em;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--bleu-pale);
+  color: var(--bleu-moyen);
+}
+
+.article-link {
+  font-size: 0.75rem;
+  color: var(--bleu-clair);
+  text-decoration: none;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.article-card:hover .article-link {
+  opacity: 1;
+}
+
+/* === ÉTAT VIDE === */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--texte-secondaire);
+}
+
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.4; }
+.empty-state h3 { font-family: 'Crimson Pro', serif; font-size: 1.3rem; color: var(--bleu-marine); margin-bottom: 0.5rem; }
+
+/* === MODAL EXPORT === */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,39,68,0.5);
+  z-index: 200;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--blanc);
+  border-radius: 10px;
+  width: 90%;
+  max-width: 520px;
+  box-shadow: var(--ombre-forte);
+  overflow: hidden;
+  animation: modalIn 0.25s ease;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  background: var(--bleu-marine);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  font-family: 'Crimson Pro', serif;
+  font-size: 1.15rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.3rem;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--transition);
+}
+
+.modal-close:hover { opacity: 1; }
+
+.modal-body { padding: 1.5rem; }
+
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+
+.export-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.5rem;
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--blanc);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.export-btn:hover {
+  border-color: var(--bleu-clair);
+  background: var(--bleu-tres-pale);
+  transform: translateY(-2px);
+  box-shadow: var(--ombre);
+}
+
+.export-btn .ext {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--bleu-pale);
+  color: var(--bleu-moyen);
+  padding: 0.15em 0.5em;
+  border-radius: 3px;
+}
+
+.export-btn .label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--texte);
+}
+
+.modal-footer {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--bordure);
+  font-size: 0.75rem;
+  color: var(--texte-secondaire);
+  text-align: center;
+}
+
+/* === SCROLL TOP === */
+.scroll-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bleu-marine);
+  color: white;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition);
+  box-shadow: var(--ombre-forte);
+  z-index: 50;
+}
+
+.scroll-top.visible { opacity: 1; }
+.scroll-top:hover { background: var(--bleu-moyen); transform: translateY(-2px); }
+
+/* === PIED DE PAGE === */
+footer {
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.78rem;
+  color: var(--texte-secondaire);
+  border-top: 1px solid var(--bordure);
+  margin-top: 2rem;
+}
+
+footer a { color: var(--bleu-clair); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .header-top { padding: 0.75rem 1rem; flex-wrap: wrap; gap: 0.5rem; }
+  .header-brand .subtitle { display: none; }
+  .header-stats { font-size: 0.72rem; gap: 1rem; }
+  .toolbar { padding: 0.6rem 1rem; top: 52px; }
+  .toolbar-inner { gap: 0.5rem; }
+  .container { padding: 1rem; }
+  .article-card { grid-template-columns: auto 1fr; gap: 0.75rem; padding: 0.9rem 1rem; }
+  .article-meta { flex-direction: row; align-items: center; grid-column: 2; margin-top: -0.25rem; }
+  .article-link { opacity: 1; }
+}
+
+@media print {
+  header, .toolbar, .scroll-top, .article-check, .article-link, .modal-overlay { display: none !important; }
+  .article-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="header-brand">
+      <h1>Maire-Info</h1>
+      <span class="badge-archives">Archives</span>
+      <span class="subtitle">Quotidien d'information des élus locaux — AMF</span>
+    </div>
+    <div class="header-stats">
+      <div><span class="stat-num" id="statArticles">0</span> articles</div>
+      <div><span class="stat-num" id="statEditions">0</span> éditions</div>
+      <div><span class="stat-num" id="statRubriques">0</span> rubriques</div>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Rechercher dans les archives…">
+    </div>
+    <select id="filterRubrique">
+      <option value="">Toutes les rubriques</option>
+    </select>
+    <select id="filterPeriode">
+      <option value="">Toutes les dates</option>
+      <option value="7">7 derniers jours</option>
+      <option value="30">30 derniers jours</option>
+      <option value="90">3 derniers mois</option>
+    </select>
+    <button class="btn btn-secondary" id="btnSelectAll">Tout sélectionner</button>
+    <button class="btn btn-export" id="btnExport">Exporter ↓</button>
+  </div>
+</div>
+
+<div class="container" id="articlesContainer"></div>
+
+<button class="scroll-top" id="scrollTop">↑</button>
+
+<!-- Modal export -->
+<div class="modal-overlay" id="modalExport">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Exporter les articles</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:1rem;font-size:0.85rem;color:var(--texte-secondaire);">
+        <span id="exportCount">0</span> article(s) sélectionné(s). Choisissez un format :
+      </p>
+      <div class="export-grid">
+        <button class="export-btn" onclick="doExport('json')"><span class="ext">.json</span><span class="label">JSON</span></button>
+        <button class="export-btn" onclick="doExport('csv')"><span class="ext">.csv</span><span class="label">CSV</span></button>
+        <button class="export-btn" onclick="doExport('md')"><span class="ext">.md</span><span class="label">Markdown</span></button>
+        <button class="export-btn" onclick="doExport('opml')"><span class="ext">.opml</span><span class="label">OPML</span></button>
+        <button class="export-btn" onclick="doExport('html')"><span class="ext">.html</span><span class="label">Bookmarks</span></button>
+        <button class="export-btn" onclick="doExport('bib')"><span class="ext">.bib</span><span class="label">BibTeX</span></button>
+        <button class="export-btn" onclick="doExport('xml')"><span class="ext">.xml</span><span class="label">XML / RSS</span></button>
+      </div>
+    </div>
+    <div class="modal-footer">Les exports contiennent uniquement les articles sélectionnés ou filtrés.</div>
+  </div>
+</div>
+
+<footer>
+  <p>Archives de <a href="https://maire-info.com" target="_blank">Maire-Info</a> — Quotidien édité par l'<a href="https://www.amf.asso.fr" target="_blank">Association des Maires de France</a></p>
+  <p style="margin-top:0.3rem;">Dernière mise à jour : <strong id="lastUpdate">—</strong> · Données collectées via le flux RSS · <a href="https://github.com/VOTRE-REPO" target="_blank">Code source & documentation</a></p>
+</footer>
+
+<script>
+// ====================================================================
+// DONNÉES EMBARQUÉES — mises à jour automatiquement par GitHub Actions
+// ====================================================================
+const ARTICLES = [
+  {
+    "id": 30468,
+    "title": "Le Sénat adopte le principe du reversement aux communes des amendes forfaitaires dressées par les policiers municipaux",
+    "description": "Les sénateurs ont adopté hier, à une très large majorité, le projet de loi étendant les prérogatives des policiers municipaux et gardes champêtres. Ils ont adopté une soixantaine d'amendements, dont certains correspondent à des demandes de longue date de l'AMF.",
+    "url": "http://www.maire-info.com/article.asp?param=30468",
+    "date": "2026-02-11",
+    "rubrique": "Polices municipales"
+  },
+  {
+    "id": 30471,
+    "title": "Municipales : le gouvernement n'envisage pas d'étendre le remboursement des dépenses de propagande électorale aux communes de moins de 1 000 habitants",
+    "description": "Entre questions parlementaires et propositions de loi, plusieurs députés et sénateurs s'interrogent, ces temps-ci, sur les règles de remboursement des dépenses électorales. Puisque le mode de scrutin a été homogénéisé dans toutes les communes, ils estiment que les règles de remboursement devraient l'être aussi. Mais le gouvernement ne l'entend pas de cette oreille.",
+    "url": "http://www.maire-info.com/article.asp?param=30471",
+    "date": "2026-02-11",
+    "rubrique": "Élections"
+  },
+  {
+    "id": 30472,
+    "title": "Baux commerciaux : pour éviter les abus, les députés veulent permettre aux communes de préempter les parts des sociétés",
+    "description": "En commission, les députés ont décidé d'étendre le droit de préemption pour empêcher certains commerçants de l'esquiver grâce à des montages juridiques et ainsi contourner l'action des maires.",
+    "url": "http://www.maire-info.com/article.asp?param=30472",
+    "date": "2026-02-11",
+    "rubrique": "Commerce"
+  },
+  {
+    "id": 30470,
+    "title": "Élections municipales : comment les électeurs perçoivent-ils la gestion financière de leurs communes ?",
+    "description": "La deuxième vague du baromètre de la campagne des municipales 2026 OpinionWay-SFIL pour Les Échos et Radio Classique vient d'être publiée. Les résultats soulignent encore et toujours un grand intérêt pour ce rendez-vous démocratique, avec des attentes parfois contradictoires notamment au niveau financier.",
+    "url": "http://www.maire-info.com/article.asp?param=30470",
+    "date": "2026-02-11",
+    "rubrique": "Elections municipales"
+  },
+  {
+    "id": 30469,
+    "title": "La loi Duplomb de retour pour un débat à l'Assemblée nationale",
+    "description": "C'est une première : une pétition donne lieu ce jour à l'organisation d'un débat à l'Assemblée nationale autour de la loi Duplomb adoptée en juillet dernier. Les échanges entre les députés risquent de dériver vers d'autres textes agricoles annoncés cette année.",
+    "url": "http://www.maire-info.com/article.asp?param=30469",
+    "date": "2026-02-11",
+    "rubrique": "Agriculture"
+  }
+];
+
+const LAST_UPDATE = "2026-02-11T08:00:00+01:00";
+// ====================================================================
+// FIN DES DONNÉES EMBARQUÉES
+// ====================================================================
+
+// --- État ---
+let selected = new Set();
+let allChecked = false;
+
+// --- Utilitaires ---
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+const JOURS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+function formatDateLong(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatDateShort(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function daysAgo(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.floor((now - d) / 86400000);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function stripHtml(s) {
+  const div = document.createElement('div');
+  div.innerHTML = s;
+  return div.textContent || div.innerText || '';
+}
+
+// --- Rubriques ---
+function getRubriques() {
+  const set = new Set();
+  ARTICLES.forEach(a => { if (a.rubrique) set.add(a.rubrique); });
+  return [...set].sort((a,b) => a.localeCompare(b, 'fr'));
+}
+
+// --- Filtrage ---
+function getFilteredArticles() {
+  const q = $('#searchInput').value.toLowerCase().trim();
+  const rub = $('#filterRubrique').value;
+  const period = parseInt($('#filterPeriode').value) || 0;
+
+  return ARTICLES.filter(a => {
+    if (q && !(a.title.toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q) || (a.rubrique||'').toLowerCase().includes(q))) return false;
+    if (rub && a.rubrique !== rub) return false;
+    if (period && daysAgo(a.date) > period) return false;
+    return true;
+  });
+}
+
+// --- Rendu ---
+function render() {
+  const articles = getFilteredArticles();
+  const container = $('#articlesContainer');
+
+  // Grouper par date
+  const groups = {};
+  articles.forEach(a => {
+    if (!groups[a.date]) groups[a.date] = [];
+    groups[a.date].push(a);
+  });
+
+  const dates = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+
+  if (dates.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📭</div>
+        <h3>Aucun article trouvé</h3>
+        <p>Essayez de modifier vos critères de recherche ou de filtrage.</p>
+      </div>`;
+    updateStats(0, 0);
+    return;
+  }
+
+  let html = '';
+  let totalArticles = 0;
+
+  dates.forEach(date => {
+    const arts = groups[date];
+    totalArticles += arts.length;
+    html += `
+      <div class="edition-group">
+        <div class="edition-date">
+          Édition du <span class="jour">${formatDateLong(date)}</span>
+          <span class="count">${arts.length} article${arts.length>1?'s':''}</span>
+        </div>`;
+
+    arts.forEach(a => {
+      const desc = stripHtml(a.description || '');
+      html += `
+        <div class="article-card" data-id="${a.id}">
+          <input type="checkbox" class="article-check" ${selected.has(a.id)?'checked':''} onchange="toggleSelect(${a.id}, this.checked)">
+          <div class="article-body">
+            <h3><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a></h3>
+            <div class="description">${escapeHtml(desc)}</div>
+          </div>
+          <div class="article-meta">
+            ${a.rubrique ? `<span class="rubrique-tag">${escapeHtml(a.rubrique)}</span>` : ''}
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="article-link">Lire →</a>
+          </div>
+        </div>`;
+    });
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+  updateStats(totalArticles, dates.length);
+}
+
+function updateStats(articles, editions) {
+  $('#statArticles').textContent = ARTICLES.length;
+  $('#statEditions').textContent = [...new Set(ARTICLES.map(a=>a.date))].length;
+  $('#statRubriques').textContent = getRubriques().length;
+}
+
+// --- Sélection ---
+function toggleSelect(id, checked) {
+  if (checked) selected.add(id); else selected.delete(id);
+}
+
+function toggleSelectAll() {
+  const filtered = getFilteredArticles();
+  allChecked = !allChecked;
+  if (allChecked) {
+    filtered.forEach(a => selected.add(a.id));
+  } else {
+    selected.clear();
+  }
+  $('#btnSelectAll').textContent = allChecked ? 'Tout désélectionner' : 'Tout sélectionner';
+  render();
+}
+
+// --- Export ---
+function getExportArticles() {
+  const filtered = getFilteredArticles();
+  if (selected.size > 0) return filtered.filter(a => selected.has(a.id));
+  return filtered;
+}
+
+function doExport(format) {
+  const arts = getExportArticles();
+  if (!arts.length) { alert('Aucun article à exporter.'); return; }
+
+  let content, filename, mime;
+  const now = new Date().toISOString().slice(0,10);
+
+  switch(format) {
+    case 'json':
+      content = JSON.stringify(arts, null, 2);
+      filename = `maire-info-${now}.json`;
+      mime = 'application/json';
+      break;
+
+    case 'csv':
+      const rows = [['ID','Date','Rubrique','Titre','Description','URL'].join(';')];
+      arts.forEach(a => rows.push([a.id, a.date, `"${(a.rubrique||'').replace(/"/g,'""')}"`, `"${a.title.replace(/"/g,'""')}"`, `"${stripHtml(a.description||'').replace(/"/g,'""')}"`, a.url].join(';')));
+      content = '\ufeff' + rows.join('\n');
+      filename = `maire-info-${now}.csv`;
+      mime = 'text/csv;charset=utf-8';
+      break;
+
+    case 'md':
+      let md = `# Archives Maire-Info\n\nExport du ${formatDateShort(now)} — ${arts.length} article(s)\n\n---\n\n`;
+      let curDate = '';
+      arts.forEach(a => {
+        if (a.date !== curDate) { curDate = a.date; md += `## ${formatDateLong(a.date)}\n\n`; }
+        md += `### ${a.title}\n\n`;
+        if (a.rubrique) md += `**Rubrique** : ${a.rubrique}\n\n`;
+        if (a.description) md += `${stripHtml(a.description)}\n\n`;
+        md += `🔗 [Lire l'article](${a.url})\n\n---\n\n`;
+      });
+      content = md;
+      filename = `maire-info-${now}.md`;
+      mime = 'text/markdown;charset=utf-8';
+      break;
+
+    case 'opml':
+      let opml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n<head><title>Archives Maire-Info</title><dateCreated>${new Date().toUTCString()}</dateCreated></head>\n<body>\n`;
+      arts.forEach(a => { opml += `  <outline text="${escapeHtml(a.title)}" htmlUrl="${escapeHtml(a.url)}" description="${escapeHtml(stripHtml(a.description||''))}" category="${escapeHtml(a.rubrique||'')}" />\n`; });
+      opml += '</body>\n</opml>';
+      content = opml;
+      filename = `maire-info-${now}.opml`;
+      mime = 'text/x-opml;charset=utf-8';
+      break;
+
+    case 'html':
+      let bk = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Maire-Info</TITLE>\n<H1>Archives Maire-Info</H1>\n<DL><p>\n`;
+      const rubGroups = {};
+      arts.forEach(a => { const r = a.rubrique || 'Sans rubrique'; if(!rubGroups[r]) rubGroups[r]=[]; rubGroups[r].push(a); });
+      Object.keys(rubGroups).sort().forEach(r => {
+        bk += `  <DT><H3>${escapeHtml(r)}</H3>\n  <DL><p>\n`;
+        rubGroups[r].forEach(a => { bk += `    <DT><A HREF="${escapeHtml(a.url)}">${escapeHtml(a.title)}</A>\n    <DD>${escapeHtml(stripHtml(a.description||'').slice(0,200))}\n`; });
+        bk += `  </DL><p>\n`;
+      });
+      bk += '</DL><p>';
+      content = bk;
+      filename = `maire-info-${now}-bookmarks.html`;
+      mime = 'text/html;charset=utf-8';
+      break;
+
+    case 'bib':
+      let bib = '';
+      arts.forEach(a => {
+        const key = `maireinfo${a.id}`;
+        bib += `@online{${key},\n  title = {${a.title.replace(/[{}]/g,'')}},\n  url = {${a.url}},\n  date = {${a.date}},\n  note = {${(a.rubrique||'').replace(/[{}]/g,'')}},\n  abstract = {${stripHtml(a.description||'').replace(/[{}]/g,'').slice(0,300)}}\n}\n\n`;
+      });
+      content = bib;
+      filename = `maire-info-${now}.bib`;
+      mime = 'text/plain;charset=utf-8';
+      break;
+
+    case 'xml':
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n<title>Archives Maire-Info</title>\n<link>https://maire-info.com</link>\n<description>Export des archives</description>\n`;
+      arts.forEach(a => {
+        xml += `<item>\n  <title>${escapeHtml(a.title)}</title>\n  <link>${escapeHtml(a.url)}</link>\n  <description>${escapeHtml(stripHtml(a.description||''))}</description>\n  <category>${escapeHtml(a.rubrique||'')}</category>\n  <pubDate>${a.date}</pubDate>\n</item>\n`;
+      });
+      xml += '</channel>\n</rss>';
+      content = xml;
+      filename = `maire-info-${now}.xml`;
+      mime = 'application/xml;charset=utf-8';
+      break;
+  }
+
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  $('#modalExport').classList.remove('active');
+}
+
+// --- Événements ---
+$('#searchInput').addEventListener('input', debounce(render, 200));
+$('#filterRubrique').addEventListener('change', render);
+$('#filterPeriode').addEventListener('change', render);
+$('#btnSelectAll').addEventListener('click', toggleSelectAll);
+$('#btnExport').addEventListener('click', () => {
+  const count = selected.size || getFilteredArticles().length;
+  $('#exportCount').textContent = count;
+  $('#modalExport').classList.add('active');
+});
+$('#modalClose').addEventListener('click', () => $('#modalExport').classList.remove('active'));
+$('#modalExport').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('active'); });
+
+$('#scrollTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+window.addEventListener('scroll', () => {
+  $('#scrollTop').classList.toggle('visible', window.scrollY > 400);
+});
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// --- Init ---
+function init() {
+  // Peupler le filtre rubriques
+  const sel = $('#filterRubrique');
+  getRubriques().forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r; opt.textContent = r;
+    sel.appendChild(opt);
+  });
+
+  // Date de mise à jour
+  if (LAST_UPDATE !== '—') {
+    const d = new Date(LAST_UPDATE);
+    $('#lastUpdate').textContent = formatDateLong(d.toISOString().slice(0,10)) + ` à ${d.getHours()}h${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
