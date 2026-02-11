@@ -6,7 +6,7 @@ Outil d'archivage et de consultation des articles du quotidien [Maire-Info](http
 
 ## Fonctionnalités
 
-- **Archivage automatique** : récupération biquotidienne des articles via le flux RSS
+- **Archivage automatique** : récupération tri-quotidienne des articles via le flux RSS
 - **Recherche plein texte** : filtrage instantané par mots-clés dans les titres et descriptions
 - **Filtrage par rubrique** : Polices municipales, Élections, Commerce, Agriculture, etc.
 - **Filtrage par période** : 7 jours, 30 jours, 3 mois
@@ -33,6 +33,7 @@ Le dépôt utilise **GitHub Actions** pour se synchroniser automatiquement :
 
 - **8h00** (heure de Paris) : premier scan du matin, capte l'édition principale
 - **14h00** (heure de Paris) : second scan, capte les articles publiés en cours de journée
+- **20h00** (heure de Paris) : troisième scan, capte les publications tardives
 - **Du lundi au vendredi** uniquement (Maire-Info ne publie pas le week-end)
 - **Déclenchement manuel** : possible via l'onglet "Actions" → "Run workflow"
 
@@ -114,6 +115,7 @@ Dans `.github/workflows/update-data.yml`, modifier les lignes `cron` :
 schedule:
   - cron: '0 7 * * 1-5'   # 8h00 Paris (7h00 UTC hiver)
   - cron: '0 13 * * 1-5'  # 14h00 Paris (13h00 UTC hiver)
+  - cron: '0 19 * * 1-5'  # 20h00 Paris (19h00 UTC hiver)
 ```
 
 > **Note** : les crons GitHub sont en UTC. En heure d'été (CEST), il faut retirer 1h supplémentaire (7h00 UTC = 9h00 CEST). Ajustez si nécessaire.
