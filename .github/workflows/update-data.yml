@@ -5,6 +5,7 @@ on:
     - cron: '0 7 * * 1-5'
     - cron: '0 13 * * 1-5'
     - cron: '0 19 * * 1-5'
+    - cron: '0 19 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -167,11 +168,6 @@ jobs:
             }
             console.log(added + ' nouvel(aux) article(s)');
 
-            if (added === 0) {
-              console.log('Pas de nouvel article.');
-              return;
-            }
-
             existingArticles.sort((a, b) => {
               if (a.date !== b.date) return b.date.localeCompare(a.date);
               return b.id - a.id;
@@ -180,18 +176,27 @@ jobs:
               existingArticles = existingArticles.slice(0, MAX_ARTICLES);
             }
 
+            // Toujours mettre à jour le timestamp du dernier scan
             let indexHtml = fs.readFileSync('index.html', 'utf-8');
             const now = new Date().toISOString();
-            indexHtml = indexHtml.replace(
-              /const ARTICLES = \[[\s\S]*?\];/,
-              'const ARTICLES = ' + JSON.stringify(existingArticles, null, 2) + ';'
-            );
             indexHtml = indexHtml.replace(
               /const LAST_UPDATE = "[^"]*";/,
               'const LAST_UPDATE = "' + now + '";'
             );
+
+            if (added > 0) {
+              // Mettre à jour les articles seulement si nouveautés
+              indexHtml = indexHtml.replace(
+                /const ARTICLES = \[[\s\S]*?\];/,
+                'const ARTICLES = ' + JSON.stringify(existingArticles, null, 2) + ';'
+              );
+              console.log(added + ' nouvel(aux) article(s) ajoute(s), total : ' + existingArticles.length);
+            } else {
+              console.log('Pas de nouvel article.');
+            }
+
             fs.writeFileSync('index.html', indexHtml, 'utf-8');
-            console.log('index.html mis a jour avec ' + existingArticles.length + ' articles');
+            console.log('Dernier scan : ' + now);
 
       - name: Commit et push
         run: |
