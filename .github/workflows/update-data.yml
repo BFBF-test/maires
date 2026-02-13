@@ -119,24 +119,22 @@ jobs:
               try {
                 const html = await fetchUrl(articleUrl);
                 
-                // Pattern 1 : ancien format — lien avec refer=listerubriques
-                const p1 = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)/i);
-                if (p1) return decodeHtmlEntities(p1[1].trim());
+                // Pattern 1 : lien rubrique (texte du lien, pas le href qui est cassé par un bug PHP)
+                var m = html.match(/-rubrique-[^>]*>([^<]+)<\/a>/i);
+                if (m && m[1].trim().length > 1) return decodeHtmlEntities(m[1].trim());
                 
-                // Pattern 2 : nouveau format cassé — attribut title sur le lien rubrique
-                const p2 = html.match(/-rubrique-[^"]*"([^"]+)"/i);
-                if (p2) return decodeHtmlEntities(p2[1].trim());
+                // Pattern 2 : ancien format avec refer=listerubriques
+                m = html.match(/refer=listerubriques[^>]*>([^<]+)<\/a>/i);
+                if (m && m[1].trim().length > 1) return decodeHtmlEntities(m[1].trim());
                 
-                // Pattern 3 : lien rubrique dans le breadcrumb (texte entre balises a après "Édition du")
-                const p3 = html.match(/dition du[^<]*<\/[^>]+>\s*<[^>]*>\s*<a[^>]*>([^<]+)<\/a>/i);
-                if (p3) return decodeHtmlEntities(p3[1].trim());
-                
-                // Pattern 4 : extraire depuis l'URL si nouveau format /rubrique/titre-article-NNNNN
-                const p4 = articleUrl.match(/maire-info\.com\/([a-z][a-z0-9-]+)\//i);
-                if (p4 && !['rss', 'images', 'article', 'archives', 'abonnement', 'contact', 'moteur', 'mentions', 'm'].includes(p4[1])) {
-                  return decodeHtmlEntities(
-                    p4[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                  );
+                // Pattern 3 : depuis le chemin URL (/rubrique/titre-article-NNNNN)
+                m = articleUrl.match(/maire-info\.com\/([a-z][a-z0-9-]+)\//i);
+                if (m) {
+                  var skip = ['rss','images','article','archives','abonnement','contact','moteur','mentions','m','articles2','maireinfo2','regie-publicitaire2'];
+                  if (skip.indexOf(m[1]) === -1) {
+                    var rub = m[1].replace(/-/g, ' ');
+                    return rub.charAt(0).toUpperCase() + rub.slice(1);
+                  }
                 }
                 
                 return '';
@@ -187,6 +185,22 @@ jobs:
             }
             console.log(added + ' nouvel(aux) article(s)');
 
+            // Reparer les rubriques manquantes ou cassees (ex: "style=", vide)
+            let repaired = 0;
+            for (const a of existingArticles) {
+              if (!a.rubrique || a.rubrique.length < 2 || /style/i.test(a.rubrique)) {
+                const fixed = await fetchRubrique(a.url);
+                if (fixed && fixed.length > 1 && !/style/i.test(fixed)) {
+                  console.log('  Repare: ' + a.title.slice(0, 50) + ' -> ' + fixed);
+                  a.rubrique = fixed;
+                  repaired++;
+                }
+                await new Promise(r => setTimeout(r, 300));
+              }
+            }
+            if (repaired > 0) console.log(repaired + ' rubrique(s) reparee(s)');
+            let dataChanged = added > 0 || repaired > 0;
+
             existingArticles.sort((a, b) => {
               if (a.date !== b.date) return b.date.localeCompare(a.date);
               return b.id - a.id;
@@ -203,15 +217,15 @@ jobs:
               'const LAST_UPDATE = "' + now + '";'
             );
 
-            if (added > 0) {
-              // Mettre à jour les articles seulement si nouveautés
+            if (dataChanged) {
+              // Mettre à jour les articles si nouveautés ou réparations
               indexHtml = indexHtml.replace(
                 /const ARTICLES = \[[\s\S]*?\];/,
                 'const ARTICLES = ' + JSON.stringify(existingArticles, null, 2) + ';'
               );
-              console.log(added + ' nouvel(aux) article(s) ajoute(s), total : ' + existingArticles.length);
+              console.log('Donnees mises a jour : ' + added + ' ajout(s), ' + repaired + ' reparation(s), total : ' + existingArticles.length);
             } else {
-              console.log('Pas de nouvel article.');
+              console.log('Pas de modification.');
             }
 
             fs.writeFileSync('index.html', indexHtml, 'utf-8');
