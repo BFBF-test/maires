@@ -118,8 +118,27 @@ jobs:
             async function fetchRubrique(articleUrl) {
               try {
                 const html = await fetchUrl(articleUrl);
-                const rubriqueMatch = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)/i);
-                if (rubriqueMatch) return decodeHtmlEntities(rubriqueMatch[1].trim());
+                
+                // Pattern 1 : ancien format — lien avec refer=listerubriques
+                const p1 = html.match(/refer=listerubriques[^"]*"[^>]*>([^<]+)/i);
+                if (p1) return decodeHtmlEntities(p1[1].trim());
+                
+                // Pattern 2 : nouveau format cassé — attribut title sur le lien rubrique
+                const p2 = html.match(/-rubrique-[^"]*"([^"]+)"/i);
+                if (p2) return decodeHtmlEntities(p2[1].trim());
+                
+                // Pattern 3 : lien rubrique dans le breadcrumb (texte entre balises a après "Édition du")
+                const p3 = html.match(/dition du[^<]*<\/[^>]+>\s*<[^>]*>\s*<a[^>]*>([^<]+)<\/a>/i);
+                if (p3) return decodeHtmlEntities(p3[1].trim());
+                
+                // Pattern 4 : extraire depuis l'URL si nouveau format /rubrique/titre-article-NNNNN
+                const p4 = articleUrl.match(/maire-info\.com\/([a-z][a-z0-9-]+)\//i);
+                if (p4 && !['rss', 'images', 'article', 'archives', 'abonnement', 'contact', 'moteur', 'mentions', 'm'].includes(p4[1])) {
+                  return decodeHtmlEntities(
+                    p4[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                  );
+                }
+                
                 return '';
               } catch(e) { return ''; }
             }
